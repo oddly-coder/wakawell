@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { fetchStops, fetchLines } from "../lib/overpass";
+import { fetchStops } from "../lib/places";
 import { getPosition } from "../lib/geo";
 import { fmtDist } from "../lib/format";
 import { STOP_RADIUS_M } from "../config";
 
 /**
- * Finds bus stops near the user, the start or the destination, and loads the
- * bus lines for whichever stop is selected.
+ * Finds bus stops near the user, the start or the destination.
  * onLocated(point) is called when "near me" finds the user's position.
  */
 export function useBusStops({ from, to, onLocated }) {
@@ -15,13 +14,11 @@ export function useBusStops({ from, to, onLocated }) {
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeStop, setActiveStop] = useState(null);
-  const [lines, setLines] = useState(null); // null = loading, [] = none found
 
   async function find(where) {
     setLoading(true);
     setNote("");
     setActiveStop(null);
-    setLines(null);
     try {
       let point;
       if (where === "me") {
@@ -34,22 +31,12 @@ export function useBusStops({ from, to, onLocated }) {
       const found = await fetchStops(point);
       setCenter(point);
       setStops(found);
-      if (!found.length) setNote(`No bus stops mapped within ${fmtDist(STOP_RADIUS_M)}.`);
+      if (!found.length) setNote(`No bus stops found within ${fmtDist(STOP_RADIUS_M)}.`);
     } catch (e) {
       setStops([]);
       setNote(e.message || "Couldn't load bus stops.");
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function select(stop) {
-    setActiveStop(stop);
-    setLines(null);
-    try {
-      setLines(await fetchLines(stop.id));
-    } catch {
-      setLines([]);
     }
   }
 
@@ -59,9 +46,8 @@ export function useBusStops({ from, to, onLocated }) {
     note,
     loading,
     activeStop,
-    lines,
     find,
-    select,
+    select: setActiveStop,
     deselect: () => setActiveStop(null),
   };
 }

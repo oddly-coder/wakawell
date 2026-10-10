@@ -1,64 +1,51 @@
-# City Router
+# City Router (Google Maps version)
 
-A city navigation web app that helps you get around on foot, by bike, by car, or by bus. Search for a place, find the closest bus stops, see which bus lines serve them, and compare route options on an interactive map.
+A city navigation web app that finds nearby bus stops, plans bus trips, and compares walking, cycling, and driving routes. Built with React, Tailwind CSS, and Google Maps Platform.
+
+## Setup
+
+1. In Google Cloud Console, create a project and **enable billing**.
+2. Enable these three APIs: **Maps JavaScript API**, **Routes API**, **Places API (New)**.
+3. Create an API key. Restrict it to your website's address and to those three APIs.
+4. Set a budget alert and a daily quota so a bug or a leaked key can't run up a bill.
+5. Run:
+
+```bash
+cp .env.example .env     # then paste your key into .env
+npm install
+npm run dev
+```
 
 ## Features
 
 - Place search with autocomplete, or tap the map to drop a start and destination pin
-- Routes for driving, cycling, and walking, with turn-by-turn steps, distance, and time
+- Bus trip planning with the bus line, direction, stops to get on and off, and number of stops
+- Walking, cycling, and driving routes with turn-by-turn steps
 - Route alternatives, with the fastest highlighted
 - Nearest bus stops within 1 km of your location, your start, or your destination
-- Bus lines per stop, and a one-tap "Walk to this stop"
-
-## Tech stack
-
-React, Tailwind CSS, Vite, MapLibre GL JS, OpenStreetMap, OSRM (routing), Nominatim (search), Overpass API (bus stops and lines)
-
-## Getting started
-
-```bash
-npm install
-npm run dev
-```
+- "Walk to this stop" and "Bus from here" on each stop
 
 ## Project structure
 
 ```
 src/
-├── main.jsx              Entry point
-├── App.jsx               Page layout and shared state (start, destination, mode)
-├── config.js             Service URLs, travel modes, map style
-├── components/
-│   ├── MapView.jsx       Map, pins, bus stop dots, route lines
-│   ├── PlaceInput.jsx    Search box with autocomplete
-│   ├── ModeTabs.jsx      Drive / Cycle / Walk switch
-│   ├── BusStopsPanel.jsx Nearby stops, bus lines, walk-to-stop
-│   ├── RouteResult.jsx   Status messages, summary and steps
-│   ├── RouteOptions.jsx  Fastest and alternative routes
-│   └── RouteSteps.jsx    Turn-by-turn list
-├── hooks/
-│   ├── useMap.js         Creates the MapLibre map and route layers
-│   ├── useRoutes.js      Fetches routes when inputs change
-│   └── useBusStops.js    Finds stops and loads bus lines
+├── main.jsx               Entry point, loads the Google Maps script
+├── App.jsx                Layout and shared state
+├── config.js              API key, URLs, travel modes
+├── components/            MapView, PlaceInput, ModeTabs, BusStopsPanel,
+│                          RouteResult, RouteOptions, RouteSteps
+├── hooks/                 useRoutes, useBusStops
 └── lib/
-    ├── routing.js        OSRM requests
-    ├── geocode.js        Nominatim requests
-    ├── overpass.js       Bus stop and bus line queries
-    ├── geo.js            Distance and geolocation helpers
-    ├── instructions.js   Turn text and direction icons
-    └── format.js         Distance and time formatting
+    ├── google.js          Shared fetch for Routes and Places calls
+    ├── routing.js         Routes API and step normalizing
+    ├── places.js          Autocomplete, place details, nearby bus stops
+    ├── polyline.js        Decodes Google route lines
+    ├── geo.js, format.js  Helpers
 ```
 
-## Configuration
+## Notes
 
-Service URLs live in `src/config.js`. The defaults are free public servers that are fine for development but not production. Before deploying, switch to your own routing, geocoding, Overpass, and tile services.
-
-## Limitations
-
-- Bus data depends on OpenStreetMap, and coverage varies widely between cities.
-- It shows nearby stops and the lines that serve them, but doesn't plan multi-leg bus trips. That needs GTFS timetable data and a transit planner such as OpenTripPlanner.
-- Route preview only: no live GPS tracking, re-routing, or voice guidance yet.
-
-## Data and attribution
-
-Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), available under the ODbL.
+- Google doesn't offer a "which buses stop here" lookup. Bus lines appear when you plan a bus trip.
+- Bus trip results depend on Google having transit data for your city. Test a few trips in Google Maps first.
+- Google bills by usage. Check current pricing at https://mapsplatform.google.com/pricing.
+- Google's terms require its routes and places to be shown on a Google map.
