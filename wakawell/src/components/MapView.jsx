@@ -1,94 +1,20 @@
-import { useEffect } from "react";
-import { Map, AdvancedMarker, Pin, useMap } from "@vis.gl/react-google-maps";
-import { GOOGLE_MAP_ID, ROUTE_COLOR } from "../config";
+import { useEffect, useRef } from "react";
+import maplibregl from "maplibre-gl";
+import { useMap } from "../hooks/useMap";
+import { ROUTE_COLOR, EMPTY_FEATURES } from "../config";
 
-// Zoom the map to fit a list of { lat, lng } points
-function fit(map, points) {
-  const bounds = new google.maps.LatLngBounds();
-  points.forEach((p) => bounds.extend(p));
-  map.fitBounds(bounds, 60);
-  // A single nearby point would otherwise zoom in absurdly far
-  google.maps.event.addListenerOnce(map, "idle", () => {
-    if (map.getZoom() > 17) map.setZoom(17);
-  });
-}
-
-// Start the map near the user if they allow it
-function LocateOnLoad() {
-  const map = useMap();
-  useEffect(() => {
-    if (!map) return;
-    navigator.geolocation?.getCurrentPosition(
-      (p) => {
-        map.setCenter({ lat: p.coords.latitude, lng: p.coords.longitude });
-        map.setZoom(14);
-      },
-      () => {}
-    );
-  }, [map]);
-  return null;
-}
-
-// The chosen route in blue, alternatives in grey
-function RouteLayer({ routes, routeIdx }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!map) return;
-    const lines = routes.map(
-      (r, i) =>
-        new google.maps.Polyline({
-          map,
-          path: r.path,
-          strokeColor: i === routeIdx ? ROUTE_COLOR : "#94a3b8",
-          strokeWeight: i === routeIdx ? 6 : 5,
-          strokeOpacity: 0.95,
-          zIndex: i === routeIdx ? 2 : 1,
-        })
-    );
-    return () => lines.forEach((l) => l.setMap(null));
-  }, [map, routes, routeIdx]);
-
-  // Zoom to a new set of routes (not when switching between options)
-  useEffect(() => {
-    if (map && routes.length) fit(map, routes[0].path);
-  }, [map, routes]);
-
-  return null;
-}
-
-function StopsLayer({ stops, center, activeStop, onStopClick }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (map && stops.length && center) fit(map, [center, ...stops]);
-  }, [map, stops, center]);
-
-  return (
-    <>
-      {stops.map((s) => {
-        const active = activeStop?.id === s.id;
-        return (
-          <AdvancedMarker
-            key={s.id}
-            position={{ lat: s.lat, lng: s.lng }}
-            title={s.label}
-            onClick={() => onStopClick(s)}
-          >
-            <div
-              className={`h-5 w-5 rounded-full border-2 border-white shadow ${
-                active ? "bg-blue-700 ring-4 ring-blue-700/30" : "bg-amber-500"
-              }`}
-            />
-          </AdvancedMarker>
-        );
-      })}
-    </>
+// Accepts { lng, lat } objects or [lng, lat] pairs
+function boundsOf(points) {
+  const toPair = (p) => (Array.isArray(p) ? p : [p.lng, p.lat]);
+  const first = toPair(points[0]);
+  return points.reduce(
+    (b, p) => b.extend(toPair(p)),
+    new maplibregl.LngLatBounds(first, first)
   );
 }
 
 /**
- * Renders the Google map and keeps it in sync with the app state: start and
+ * Renders the map and keeps it in sync with the app state: start and
  * destination pins, bus stop dots, and the chosen and alternative routes.
  */
 export default function MapView({
@@ -102,38 +28,78 @@ export default function MapView({
   onMapClick,
   onStopClick,
 }) {
-  return (
-    <div className="absolute inset-0">
-      <Map
-        mapId={GOOGLE_MAP_ID}
-        defaultCenter={{ lat: 20, lng: 0 }}
-        defaultZoom={2}
-        gestureHandling="greedy"
-        clickableIcons={false}
-        onClick={(e) => {
-          const p = e.detail.latLng;
-          if (p) onMapClick({ lat: p.lat, lng: p.lng });
-        }}
-      >
-        <LocateOnLoad />
-        <RouteLayer routes={routes} routeIdx={routeIdx} />
-        <StopsLayer
-          stops={stops}
-          center={stopsCenter}
-          activeStop={activeStop}
-          onStopClick={onStopClick}
-        />
-        {from && (
-          <AdvancedMarker position={{ lat: from.lat, lng: from.lng }}>
-            <Pin background="#0f172a" borderColor="#ffffff" glyphColor="#ffffff" />
-          </AdvancedMarker>
-        )}
-        {to && (
-          <AdvancedMarker position={{ lat: to.lat, lng: to.lng }}>
-            <Pin background={ROUTE_COLOR} borderColor="#ffffff" glyphColor="#ffffff" />
-          </AdvancedMarker>
-        )}
-      </Map>
-    </div>
-  );
+  const containerRef = useRef(null);
+  const clickRef = useRef(onMapClick);
+  const stopClickRef = useRef(onStopClick);
+  clickRef.current = onMapClick;
+  stopClickRef.current = onStopClick;
+
+  const { mapRef, ready } = useMap(containerRef, clickRef);
+  const markers = useRef({ from: null, to: null, stops: [] });
+
+  // Start and destination pins
+  useEffect(() => {
+    if (!ready) return;
+    const sync = (key, point, color) => {
+      markers.current[key]?.remove();
+      markers.current[key] = point
+        ? new maplibregl.Marker({ color }).setLngLat([point.lng, point.lat]).addTo(mapRef.current)
+        : null;
+    };
+    sync("from", from, "#0f172a");
+    sync("to", to, ROUTE_COLOR);
+  }, [from, to, ready, mapRef]);
+
+  // Bus stop dots
+  useEffect(() => {
+    if (!ready) return;
+    markers.current.stops.forEach((m) => m.remove());
+    markers.current.stops = stops.map((s) => {
+      const el = document.createElement("button");
+      const isActive = activeStop?.id === s.id;
+      el.setAttribute("aria-label", `Bus stop: ${s.label}`);
+      el.className = `h-5 w-5 rounded-full border-2 border-white shadow ${
+        isActive ? "bg-blue-700 ring-4 ring-blue-700/30" : "bg-amber-500"
+      }`;
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation(); // don't also drop a pin
+        stopClickRef.current?.(s);
+      });
+      return new maplibregl.Marker({ element: el }).setLngLat([s.lng, s.lat]).addTo(mapRef.current);
+    });
+  }, [stops, activeStop, ready, mapRef]);
+
+  // Zoom to the stops that were found
+  useEffect(() => {
+    if (!ready || !stops.length || !stopsCenter) return;
+    mapRef.current.fitBounds(boundsOf([stopsCenter, ...stops]), {
+      padding: 60,
+      duration: 700,
+      maxZoom: 17,
+    });
+  }, [stops, stopsCenter, ready, mapRef]);
+
+  // Draw the chosen route, and the others in grey
+  useEffect(() => {
+    if (!ready) return;
+    const feature = (r) => ({ type: "Feature", geometry: r.geometry, properties: {} });
+    mapRef.current
+      .getSource("route")
+      .setData(routes[routeIdx] ? feature(routes[routeIdx]) : EMPTY_FEATURES);
+    mapRef.current.getSource("alts").setData({
+      type: "FeatureCollection",
+      features: routes.filter((_, i) => i !== routeIdx).map(feature),
+    });
+  }, [routes, routeIdx, ready, mapRef]);
+
+  // Zoom to a new set of routes (not when switching between options)
+  useEffect(() => {
+    if (!ready || !routes.length) return;
+    mapRef.current.fitBounds(boundsOf(routes[0].geometry.coordinates), {
+      padding: 60,
+      duration: 700,
+    });
+  }, [routes, ready, mapRef]);
+
+  return <div ref={containerRef} className="absolute inset-0" />;
 }

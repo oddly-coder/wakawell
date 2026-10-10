@@ -10,7 +10,7 @@ import { useBusStops } from "./hooks/useBusStops";
 export default function App() {
   const [from, setFrom] = useState(null);
   const [to, setTo] = useState(null);
-  const [mode, setMode] = useState("TRANSIT");
+  const [mode, setMode] = useState("car");
 
   const { routes, route, routeIdx, setRouteIdx, loading, error } = useRoutes(from, to, mode);
   const bus = useBusStops({ from, to, onLocated: setFrom });
@@ -24,13 +24,7 @@ export default function App() {
 
   function walkToStop(stop) {
     setTo({ lng: stop.lng, lat: stop.lat, label: stop.label });
-    setMode("WALK");
-  }
-
-  // Use a stop as the start, then Google shows which buses go to your destination
-  function rideFromStop(stop) {
-    setFrom({ lng: stop.lng, lat: stop.lat, label: stop.label });
-    setMode("TRANSIT");
+    setMode("foot");
   }
 
   function swap() {
@@ -63,11 +57,11 @@ export default function App() {
           note={bus.note}
           loading={bus.loading}
           activeStop={bus.activeStop}
+          lines={bus.lines}
           onFind={bus.find}
           onSelect={bus.select}
           onDeselect={bus.deselect}
           onWalk={walkToStop}
-          onRide={rideFromStop}
         />
 
         <RouteResult

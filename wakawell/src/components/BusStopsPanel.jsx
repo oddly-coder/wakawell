@@ -11,11 +11,11 @@ export default function BusStopsPanel({
   note,
   loading,
   activeStop,
+  lines,
   onFind,
   onSelect,
   onDeselect,
   onWalk,
-  onRide,
 }) {
   return (
     <section className="border-t border-slate-200 p-4">
@@ -51,18 +51,17 @@ export default function BusStopsPanel({
                   <span className="text-xs text-slate-500">{fmtDist(s.dist)}</span>
                 </button>
                 {open && (
-                  <div className="flex flex-wrap gap-2 px-3 pb-3">
+                  <div className="px-3 pb-3">
+                    <p className="mb-2 text-xs text-slate-600">
+                      {lines === null && "Checking which buses stop here…"}
+                      {lines?.length === 0 && "No bus lines are mapped for this stop."}
+                      {lines?.length > 0 && `Buses: ${lines.join(", ")}`}
+                    </p>
                     <button
                       onClick={() => onWalk(s)}
                       className="rounded-md bg-blue-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-800"
                     >
                       Walk to this stop
-                    </button>
-                    <button
-                      onClick={() => onRide(s)}
-                      className="rounded-md border border-blue-700 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-50"
-                    >
-                      Bus from here
                     </button>
                   </div>
                 )}

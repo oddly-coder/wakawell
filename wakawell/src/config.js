@@ -1,17 +1,35 @@
-/* Google Maps Platform settings. Put your key in .env (see .env.example). */
-export const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-export const GOOGLE_MAP_ID = import.meta.env.VITE_GOOGLE_MAP_ID || "DEMO_MAP_ID";
+/*
+  Dev-only public services. Swap these for your own Valhalla/OSRM,
+  Nominatim/Photon/Pelias, Overpass and tile server before production.
+*/
+export const ROUTERS = {
+  car: "https://routing.openstreetmap.de/routed-car/route/v1/driving",
+  bike: "https://routing.openstreetmap.de/routed-bike/route/v1/driving",
+  foot: "https://routing.openstreetmap.de/routed-foot/route/v1/driving",
+};
 
-export const ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes";
-export const PLACES_URL = "https://places.googleapis.com/v1";
-
-// ids are the travel modes Google's Routes API expects
 export const MODES = [
-  { id: "TRANSIT", label: "Bus" },
-  { id: "WALK", label: "Walk" },
-  { id: "BICYCLE", label: "Cycle" },
-  { id: "DRIVE", label: "Drive" },
+  { id: "car", label: "Drive" },
+  { id: "bike", label: "Cycle" },
+  { id: "foot", label: "Walk" },
 ];
 
+export const GEOCODER = "https://nominatim.openstreetmap.org/search";
+export const OVERPASS = "https://overpass-api.de/api/interpreter";
 export const STOP_RADIUS_M = 1000;
+
+export const MAP_STYLE = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [{ id: "osm", type: "raster", source: "osm" }],
+};
+
 export const ROUTE_COLOR = "#1d4ed8";
+export const EMPTY_FEATURES = { type: "FeatureCollection", features: [] };
